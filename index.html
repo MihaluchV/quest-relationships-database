@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Квест: зв'язки в базах даних</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.45 system-ui,Arial,sans-serif;background:#e9eef5;color:#14213d}
+header{background:#14213d;color:#fff;padding:14px 16px}
+header h1{margin:0;font-size:21px;letter-spacing:.2px}
+header p{margin:2px 0 0;font-size:14px;color:#b9c4dc}
+#app{max-width:780px;margin:0 auto;padding:10px 12px 40px}
+h2,h3{margin:0 0 6px}h3{font-size:18px}
+.card{background:#fff;border:2px solid #14213d;border-radius:4px 16px 4px 16px;padding:14px;margin:12px 0}
+.pg{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+.pg span{flex:1 1 120px;text-align:center;padding:6px 4px;font-size:13px;background:#cfd8e8;border-radius:8px}
+.pg .on{background:#14213d;color:#fff}.pg .dn{background:#f2b705;color:#14213d;font-weight:700}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:10px 16px;background:#14213d;color:#fff;margin:4px 4px 4px 0}
+button:hover{background:#2a3d6e}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #f2b705}
+button.o{background:#fff;color:#14213d;border:2px solid #14213d}button.o:hover{background:#eef2fa}
+button:disabled{opacity:.45;cursor:default}
+select,input{font:inherit;padding:8px;border:2px solid #9aa8c7;border-radius:8px;max-width:100%}
+.fr{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 6px;border-radius:8px}
+.fr span{font-family:Consolas,monospace}
+.bad{background:#fde3e3;outline:2px solid #d64545}
+.ok{color:#1b7f4d;font-weight:600}.er{color:#c0392b;font-weight:600}
+#cv3{position:relative;display:flex;justify-content:space-between;padding:6px 0;margin:6px 0}
+#ln{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.col{display:flex;flex-direction:column;gap:12px;width:42%;position:relative;z-index:1}
+.chip{background:#fff;color:#14213d;border:2px solid #14213d;text-align:center;margin:0}
+.chip.s{background:#f2b705}
+.st{display:block;width:100%;text-align:left;background:#fff;color:#14213d;border:2px solid #9aa8c7;margin:7px 0}
+.st.m{border-color:#d64545;background:#fde3e3}
+pre{white-space:pre-wrap;font:14px/1.5 system-ui,Arial,sans-serif;margin:6px 0 0}
+.big{font-size:40px;font-weight:800;margin:4px 0}
+</style></head><body>
+<header><h1>🔐 Квест «Таємниця бібліотеки школи»</h1><p>Зв'язки в реляційних базах даних · 9 клас</p></header>
+<div id="app"><div id="pgw"></div><div id="main"></div></div>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+/* === Надсилання результатів у Google-таблицю === */
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycby5JuoBDhkyMaeFKb3bjrhbHsIZIhM4f741IKFEZzoxtfYlNnycEXdbmtxjUtl1QQYyRw/exec",KEY="змініть-на-свій-ключ",TASK="Квест: зв'язки в БД";
+const TY=["1 : 1","1 : ∞","∞ : ∞"],TL=["1 : 1 (один до одного)","1 : ∞ (один до багатьох)","∞ : ∞ (багато до багатьох)"];
+const NM=["","Ключі","Тип зв'язку","З'єднання","Пошук помилок"],N=[0,10,8,15,8];
+let ME={sn:"",fn:"",cl:""},lvl=0,done=0,msg="",ERR=[0,0,0,0,0],LOG=[];
+const err=(l,n,t)=>{ERR[l]+=n;LOG.push("Рівень "+l+": "+t)};
+const sc=l=>Math.round(25*Math.max(0,1-ERR[l]/N[l])),total=()=>sc(1)+sc(2)+sc(3)+sc(4);
+const rank=t=>t>=90?"Головний архітектор БД 🏆":t>=70?"Бібліотекар-профі 📚":t>=50?"Практикант 🔧":"Новачок: спробуй ще раз 🌱";
+
+/* === Дані рівнів === */
+const T1=[["Читачі",[["код_читача","pk"],["прізвище",""],["клас",""]]],["Книги",[["код_книги","pk"],["назва",""],["рік_видання",""]]],["Видачі",[["код_видачі","pk"],["код_читача","fk"],["код_книги","fk"],["дата",""]]]];
+let S1={},bad1=new Set;
+const Q2=[["Читач і його читацький квиток",0,"У кожного читача рівно один квиток, а квиток належить одному читачу."],["Клас і учні, які в ньому вчаться",1,"В одному класі багато учнів, але кожен учень навчається в одному класі."],["Учні та гуртки, які вони відвідують",2,"Учень ходить на кілька гуртків, а в гуртку займається багато учнів."],["Автор і книги, які він написав",1,"В автора може бути багато книг, а в книги (у нашій базі) один автор."],["Книга і читачі, які її брали",2,"Книгу брали різні читачі, а кожен читач брав різні книги."],["Школа і її директор",0,"В одній школі один директор, і він очолює лише цю школу."],["Бібліотекар і читачі, яких він обслуговує",1,"Один бібліотекар обслуговує багатьох читачів, а читач закріплений за одним бібліотекарем."],["Країна і її столиця",0,"Одна країна має одну столицю, і місто є столицею лише однієї країни."]];
+let qi=0,fb=null;
+const R3=[
+{a:"Читачі",A:["Олена","Максим","Іра"],b:"Квитки",B:["№101","№102","№103"],f:["Олена має квиток №102","Максим має квиток №101","Іра має квиток №103"],c:["0-1","1-0","2-2"],t:0},
+{a:"Автори",A:["Шевченко","Леся Українка","Франко"],b:"Книги",B:["Кобзар","Катерина","Лісова пісня","Захар Беркут"],f:["Шевченко написав «Кобзар» і «Катерину»","Леся Українка написала «Лісову пісню»","Франко написав «Захара Беркута»"],c:["0-0","0-1","1-2","2-3"],t:1},
+{a:"Читачі",A:["Олена","Максим","Іра"],b:"Книги",B:["Кобзар","Лісова пісня","Захар Беркут"],f:["Олена брала «Кобзар» і «Лісову пісню»","Максим брав «Кобзар» і «Захара Беркута»","Іра брала «Лісову пісню»"],c:["0-0","0-1","1-0","1-2","2-1"],t:2}];
+let ri=0,st3="l",LK=new Set,sl=null,chk=0;
+const S4=[["Автори → Книги: «один до багатьох» (в автора може бути кілька книг)",0],["Первинним ключем таблиці «Читачі» обрано поле «прізвище»",1],["Читачі → Видачі: «один до багатьох» (один читач бере багато книг)",0],["Читачі і Книги з'єднані напряму лінією «багато до багатьох», без проміжної таблиці",1],["Видачі.код_читача — зовнішній ключ, що посилається на таблицю «Читачі»",0],["У таблиці «Видачі» поле код_книги є первинним ключем",1],["Книги → Видачі: «один до багатьох»",0],["Читачі і Квитки: «один до багатьох», хоча в читача лише один квиток і навпаки",1]];
+const ORD=[...S4.keys()].sort(()=>Math.random()-.5);let M4=new Set;
+
+/* === Екрани === */
+const pg=()=>lvl<1||lvl>4?"":`<div class="pg">${[1,2,3,4].map(i=>{const d=i<lvl||(i==lvl&&done);return`<span class="${d?"dn":i==lvl?"on":""}">${d?"🗝️":i} ${NM[i]}</span>`}).join("")}</div>`;
+const startH=()=>`<div class="card"><h2>Бібліотекар зник…</h2><p>У сейфі лежить пароль до бази даних шкільної бібліотеки. Щоб його відкрити, пройди <b>4 кімнати</b> й здобудь 4 ключі. Кімнати відкриваються по черзі: далі можна рухатись, лише відповівши правильно.</p>
+<p><input id="sn" placeholder="Прізвище" value="${esc(ME.sn)}"> <input id="fn" placeholder="Ім'я" value="${esc(ME.fn)}"> <input id="cl" placeholder="Клас (9-А)" size="9" value="${esc(ME.cl)}"></p><button data-a="go">Увійти до бібліотеки</button><p class="er">${msg}</p></div>`;
+const L1=()=>`<div class="card"><h3>🚪 Кімната 1. Архів ключів</h3><p>Двері замкнено. Для кожного поля вибери його роль. <b>Первинний ключ</b> однозначно ідентифікує запис у таблиці. <b>Зовнішній ключ</b> посилається на первинний ключ іншої таблиці.</p></div>`+T1.map((t,i)=>`<div class="card"><h3>${t[0]}</h3>${t[1].map((f,j)=>{const k=i+"_"+j,v=S1[k]||"";return`<div class="fr${bad1.has(k)?" bad":""}"><span>${f[0]}</span><select data-k="${k}"><option value="">звичайне поле</option><option value="pk"${v=="pk"?" selected":""}>🔑 первинний ключ</option><option value="fk"${v=="fk"?" selected":""}>🔗 зовнішній ключ</option></select></div>`}).join("")}</div>`).join("")+`<button data-a="c1">Перевірити</button><p class="er">${msg}</p>`;
+const L2=()=>{const q=Q2[qi],ok=fb&&fb.ok;return`<div class="card"><h3>📖 Кімната 2. Читальна зала</h3><p>Питання ${qi+1} з ${Q2.length}. Який тип зв'язку між цими об'єктами?</p><p style="font-size:20px;margin:12px 0"><b>${q[0]}</b></p>${TL.map((t,i)=>`<button class="o" data-a="a2" data-v="${i}"${ok?" disabled":""}>${t}</button>`).join("")}<p class="${ok?"ok":"er"}">${fb?fb.t:""}</p>${ok?`<button data-a="n2">${qi<Q2.length-1?"Далі →":"Завершити кімнату"}</button>`:""}</div>`};
+const L3=()=>{const r=R3[ri],chips=(a,k)=>a.map((x,i)=>`<button class="chip${k=="l"&&sl==i?" s":""}" data-${k}="${i}">${x}</button>`).join("");
+return`<div class="card"><h3>🕸 Кімната 3. Стелаж-павутина</h3><p>Запис ${ri+1} з 3. Торкнись запису ліворуч, потім запису праворуч: з'явиться лінія. Ще одне торкання по тій самій парі прибирає лінію.</p><ul>${r.f.map(x=>`<li>${x}</li>`).join("")}</ul>
+<div style="display:flex;justify-content:space-between"><b>${r.a}</b><b>${r.b}</b></div><div id="cv3"><svg id="ln"></svg><div class="col">${chips(r.A,"l")}</div><div class="col">${chips(r.B,"r")}</div></div>
+${st3=="l"?`<button data-a="c3">Перевірити з'єднання</button>`:`<p class="ok">✔ Лінії проведено правильно.</p><p><b>Який тип зв'язку вийшов між таблицями «${r.a}» і «${r.b}»?</b></p>${TL.map((t,i)=>`<button class="o" data-a="t3" data-v="${i}">${t}</button>`).join("")}`}<p class="er">${msg}</p></div>`};
+const L4=()=>`<div class="card"><h3>🕵 Кімната 4. Кабінет бібліотекаря</h3><p>У проєкті бази даних бібліотеки сховалися помилки: їх кілька. Торкнись кожного <b>хибного</b> твердження, щоб його позначити. Правильні залиш без змін.</p>${ORD.map(i=>`<button class="st${M4.has(i)?" m":""}" data-s="${i}">${M4.has(i)?"❌":"▫️"} ${S4[i][0]}</button>`).join("")}<button data-a="c4">Перевірити</button><p class="er">${msg}</p></div>`;
+const keyH=()=>`<div class="card" style="text-align:center"><h2>🗝️ Ключ ${lvl} з 4 здобуто!</h2><p>Бали за кімнату: <b>${sc(lvl)} / 25</b> · помилок: ${ERR[lvl]}</p><button data-a="next">${lvl<4?"До наступної кімнати →":"Відкрити сейф 🔓"}</button></div>`;
+const endH=()=>{const T=total();return`<div class="card" style="text-align:center"><h2>🔓 Сейф відкрито!</h2><p style="font-size:19px;margin:2px 0 8px">Архітектор БД: <b>${esc(ME.sn)} ${esc(ME.fn)}</b>, ${esc(ME.cl)} клас</p><div class="big">${T} / 100</div><p><b>${rank(T)}</b></p></div><div class="card">${[1,2,3,4].map(l=>`<div class="fr"><span>${l}. ${NM[l]}</span><span>${sc(l)} / 25 · помилок: ${ERR[l]}</span></div>`).join("")}</div><div class="card"><b>Допущені помилки</b><pre>${esc(LOG.join("\n")||"немає 🎉")}</pre></div><button data-a="sv">🖼 Зберегти результат</button><button data-a="sd">📤 Надіслати вчителю</button><p id="sm"></p>`};
+function R(){$("#pgw").innerHTML=pg();$("#main").innerHTML=lvl==0?startH():lvl==5?endH():done?keyH():[0,L1,L2,L3,L4][lvl]();if(lvl==3&&!done)requestAnimationFrame(draw)}
+function draw(){const s=$("#ln");if(!s)return;const c=$("#cv3").getBoundingClientRect();s.innerHTML=[...LK].map(k=>{const[i,j]=k.split("-"),a=document.querySelector(`[data-l="${i}"]`).getBoundingClientRect(),b=document.querySelector(`[data-r="${j}"]`).getBoundingClientRect();return`<line x1="${a.right-c.left}" y1="${a.top+a.height/2-c.top}" x2="${b.left-c.left}" y2="${b.top+b.height/2-c.top}" stroke="${chk&&!R3[ri].c.includes(k)?"#d64545":"#14213d"}" stroke-width="3" stroke-linecap="round"/>`}).join("")}
+addEventListener("resize",draw);
+
+/* === Дії === */
+const A={
+go(){const v=k=>$("#"+k).value.trim();ME={sn:v("sn"),fn:v("fn"),cl:v("cl")};if(!ME.sn||!ME.fn||!ME.cl){msg="Заповніть прізвище, ім'я та клас.";return R()}msg="";lvl=1;R()},
+c1(){const w=[];T1.forEach((t,i)=>t[1].forEach((f,j)=>{if((S1[i+"_"+j]||"")!=f[1])w.push([i,j])}));
+ if(!w.length){done=1;msg="";return R()}
+ bad1=new Set(w.map(x=>x.join("_")));err(1,w.length,"неправильна роль поля: "+w.map(([i,j])=>T1[i][0]+"."+T1[i][1][j][0]).join(", "));
+ msg=`Помилок: ${w.length} (червоні поля). Подумай: які значення не можуть повторюватись і які поля «вказують» на іншу таблицю?`;R()},
+a2(g){const q=Q2[qi],v=+g.dataset.v;if(v==q[1])fb={ok:1,t:"✔ Так! "+q[2]};else{err(2,1,"«"+q[0]+"»: обрано "+TY[v]);fb={ok:0,t:"✖ Ні. Порахуй, скільки об'єктів з одного боку відповідає одному об'єкту з іншого."}}R()},
+n2(){if(qi<Q2.length-1){qi++;fb=null}else done=1;R()},
+c3(){const r=R3[ri],w=[...LK].filter(k=>!r.c.includes(k)).length+r.c.filter(k=>!LK.has(k)).length;
+ if(!w){st3="t";chk=0;msg="";return R()}
+ err(3,w,"«"+r.a+"» і «"+r.b+"»: помилок у лініях — "+w);chk=1;msg=`Помилок: ${w}. Червоні лінії зайві; можливо, якихось ліній не вистачає. Перечитай умови.`;R()},
+t3(g){const r=R3[ri],v=+g.dataset.v;if(v!=r.t){err(3,1,"тип зв'язку «"+r.a+"» і «"+r.b+"»: обрано "+TY[v]);msg="✖ Ні. Подивись, скільки ліній виходить з одного запису з кожного боку.";return R()}
+ msg="";if(ri<2){ri++;st3="l";LK=new Set;sl=null;chk=0}else done=1;R()},
+c4(){const w=S4.map((s,i)=>M4.has(i)!=!!s[1]?i:-1).filter(i=>i>=0);
+ if(!w.length){done=1;msg="";return R()}
+ err(4,w.length,"хибна оцінка тверджень: "+w.map(i=>"«"+S4[i][0].slice(0,38)+"…»").join("; "));msg=`Не збігається відповідей: ${w.length}. Перечитай твердження: чи є помилка, чи її немає?`;R()},
+next(){lvl++;done=0;msg="";R()},
+sv(){const c=cv(),a=document.createElement("a");a.href=c.toDataURL("image/png");a.download="kvest_"+ME.sn+"_"+ME.fn+".png";a.click()},
+async sd(b){const m=$("#sm"),F={"Прізвище":ME.sn,"Ім'я":ME.fn,"Клас":ME.cl,"Бали":total(),"Макс. балів":100,"Кількість помилок":ERR.reduce((a,x)=>a+x,0),"Підсумок по рівнях":[1,2,3,4].map(l=>l+". "+NM[l]+": "+sc(l)+"/25, помилок "+ERR[l]).join("\n"),"Допущені помилки":LOG.join("\n")||"немає"};
+ b.disabled=true;m.textContent="Надсилання…";
+ try{await fetch(SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify({key:KEY,task:TASK,fields:F,image:{name:"kvest_"+ME.sn+"_"+ME.fn+".png",data:cv().toDataURL("image/png").split(",")[1]}})});m.textContent="Результат надіслано вчителю ✔"}
+ catch(x){b.disabled=false;m.textContent="Не вдалося надіслати. Перевірте інтернет і спробуйте ще раз."}}
+};
+function cv(){const c=document.createElement("canvas"),g=c.getContext("2d"),T=total();c.width=640;c.height=380;g.fillStyle="#fff";g.fillRect(0,0,640,380);g.fillStyle="#14213d";g.fillRect(0,0,640,60);g.fillStyle="#fff";g.font="bold 22px system-ui,Arial";g.fillText("Квест «Таємниця бібліотеки школи»",20,38);
+ g.fillStyle="#14213d";g.font="17px system-ui,Arial";g.fillText(ME.sn+" "+ME.fn+", "+ME.cl+" клас · "+new Date().toLocaleString("uk-UA"),20,92);
+ [1,2,3,4].forEach((l,i)=>g.fillText(l+". "+NM[l]+": "+sc(l)+" / 25, помилок: "+ERR[l],20,130+i*30));
+ g.font="bold 34px system-ui,Arial";g.fillText("Разом: "+T+" / 100",20,290);g.font="18px system-ui,Arial";g.fillText(rank(T).replace(/[^\p{L}\p{N}\s:'-]/gu,"").trim(),20,325);return c}
+$("#main").addEventListener("click",e=>{const g=e.target.closest("button");if(!g)return;const d=g.dataset;
+ if(d.a)A[d.a](g);
+ else if(d.l!==undefined&&st3=="l"){sl=+d.l;msg="";R()}
+ else if(d.r!==undefined&&st3=="l"&&sl!==null){const k=sl+"-"+d.r;LK.has(k)?LK.delete(k):LK.add(k);sl=null;chk=0;msg="";R()}
+ else if(d.s!==undefined){const i=+d.s;M4.has(i)?M4.delete(i):M4.add(i);msg="";R()}});
+$("#main").addEventListener("change",e=>{const s=e.target;if(s.dataset.k){S1[s.dataset.k]=s.value;bad1.delete(s.dataset.k);s.closest(".fr").classList.remove("bad")}});
+R();
+</script></body></html>
